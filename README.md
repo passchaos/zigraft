@@ -2,6 +2,7 @@
 
 inspired by [zimpl](https://github.com/permutationlock/zimpl), support:
 + static/dynamic dispatch interface
++ trait associated type
 + type erasure
 + interface inheritance
 + interface projection

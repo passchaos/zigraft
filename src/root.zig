@@ -43,6 +43,22 @@ fn normalizeSelfBaseType(comptime T: type) type {
     };
 }
 
+/// associated type parser:
+/// - interface provides a default value `Default`
+/// - if the impl type (removing one level of `*` from `T`) defines
+/// a `pub const <name>: type = ...` field, it is used instead
+pub fn associatedType(comptime T: type, comptime name: []const u8, comptime Default: type) type {
+    const ImplBase = normalizeSelfBaseType(T);
+
+    if (!@hasDecl(ImplBase, name)) return Default;
+
+    const v = @field(ImplBase, name);
+    if (@TypeOf(v) != type) {
+        @compileError("associated decl `" ++ name ++ "` on `" ++ @typeName(ImplBase) ++ "` must have type `type`, got `" ++ @typeName(@TypeOf(v)) ++ "`");
+    }
+    return v;
+}
+
 fn hasFieldNamed(comptime T: type, comptime name: []const u8) bool {
     return switch (@typeInfo(T)) {
         .@"struct" => |s| blk: {

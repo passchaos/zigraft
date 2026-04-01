@@ -15,10 +15,11 @@ fn Named(comptime T: type) type {
 
 fn Reader(comptime T: type) type {
     return struct {
-        read: fn (T, []u8) anyerror!usize,
+        const ReadError: type = zigraft.associatedType(T, "ReadError", anyerror);
+        read: fn (T, []u8) ReadError!usize,
 
-        readAll: fn (T, []u8) anyerror!usize = struct {
-            fn call(self: T, out: []u8) anyerror!usize {
+        readAll: fn (T, []u8) ReadError!usize = struct {
+            fn call(self: T, out: []u8) ReadError!usize {
                 const impl = zigraft.Impl(Reader, T){};
 
                 var idx: usize = 0;
@@ -47,7 +48,8 @@ pub fn NamedReader(comptime T: type) type {
 
 pub fn Seekable(comptime T: type) type {
     return struct {
-        seekTo: fn (T, u64) anyerror!void,
+        const SeekError: type = zigraft.associatedType(T, "SeekError", zigraft.associatedType(T, "ReadError", anyerror));
+        seekTo: fn (T, u64) SeekError!void,
     };
 }
 
@@ -79,7 +81,9 @@ const MyReader = struct {
     buf: []const u8,
     pos: usize = 0,
 
-    pub fn read(self: *MyReader, out: []u8) anyerror!usize {
+    pub const ReadError: type = anyerror;
+
+    pub fn read(self: *MyReader, out: []u8) ReadError!usize {
         std.debug.print("reader 1\n", .{});
         if (self.pos >= self.buf.len) return 0;
         const remain = self.buf.len - self.pos;
@@ -89,7 +93,7 @@ const MyReader = struct {
         return n;
     }
 
-    pub fn seekTo(self: *MyReader, pos: u64) anyerror!void {
+    pub fn seekTo(self: *MyReader, pos: u64) ReadError!void {
         if (pos > self.buf.len) return error.OutOfBounds;
         self.pos = @intCast(pos);
     }
@@ -110,7 +114,11 @@ const MyReader2 = struct {
 
     const Self = @This();
 
-    pub fn read(self: *Self, out: []u8) anyerror!usize {
+    pub const ReadError: type = error{
+        OutOfBounds,
+    };
+
+    pub fn read(self: *Self, out: []u8) ReadError!usize {
         std.debug.print("reader 2\n", .{});
         if (self.pos >= self.buf.len) return 0;
         const remain = self.buf.len - self.pos;
@@ -120,8 +128,8 @@ const MyReader2 = struct {
         return n;
     }
 
-    pub fn seekTo(self: *Self, pos: u64) anyerror!void {
-        if (pos > self.buf.len) return error.OutOfBounds;
+    pub fn seekTo(self: *Self, pos: u64) ReadError!void {
+        if (pos > self.buf.len) return ReadError.OutOfBounds;
         self.pos = @intCast(pos);
     }
 
@@ -215,6 +223,17 @@ test "compose interface: Stream" {
     const n = try impl.describeAndRead(&x, out[0..]);
     try std.testing.expectEqual(@as(usize, 4), n);
     try std.testing.expectEqualStrings("cdef", out[0..n]);
+}
+
+test "associated type override works" {
+    comptime {
+        if (Reader(*MyReader).ReadError != anyerror) {
+            @compileError("Reader(*MyReader).ReadError should be anyerror");
+        }
+        if (Reader(*MyReader2).ReadError != MyReader2.ReadError) {
+            @compileError("Reader(*MyReader2).ReadError should come from MyReader2.ReadError");
+        }
+    }
 }
 
 test "dyn dispatch works for pointer receiver" {
