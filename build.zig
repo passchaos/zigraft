@@ -13,7 +13,13 @@ pub fn build(b: *std.Build) void {
         .target = target,
     });
 
+    const test_filters = b.option(
+        []const []const u8,
+        "test-filter",
+        "Filter test cases",
+    ) orelse &[0][]const u8{};
     const exe_tests = b.addTest(.{
+        .filters = test_filters,
         .root_module = b.addModule("tests", .{
             .root_source_file = b.path("src/tests.zig"),
             .imports = &.{
