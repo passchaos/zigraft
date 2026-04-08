@@ -1,12 +1,8 @@
 const std = @import("std");
 const builtin = std.builtin;
 
-fn isStruct(comptime T: type) bool {
-    return @typeInfo(T) == .@"struct";
-}
-
 fn assertStruct(comptime T: type, comptime what: []const u8) void {
-    if (!isStruct(T)) {
+    if (@typeInfo(T) != .@"struct") {
         @compileError(what ++ " must be a struct, got `" ++ @typeName(T) ++ "`");
     }
 }
@@ -19,20 +15,6 @@ fn isSingleItemPointer(comptime T: type) bool {
     return switch (@typeInfo(T)) {
         .pointer => |p| p.size == .one,
         else => false,
-    };
-}
-
-fn isConstPointer(comptime T: type) bool {
-    return switch (@typeInfo(T)) {
-        .pointer => |p| p.is_const,
-        else => false,
-    };
-}
-
-fn childTypeOfPointer(comptime T: type) type {
-    return switch (@typeInfo(T)) {
-        .pointer => |p| p.child,
-        else => @compileError("expected pointer type, got `" ++ @typeName(T) ++ "`"),
     };
 }
 
@@ -57,18 +39,6 @@ pub fn associatedType(comptime T: type, comptime name: []const u8, comptime Defa
         @compileError("associated decl `" ++ name ++ "` on `" ++ @typeName(ImplBase) ++ "` must have type `type`, got `" ++ @typeName(@TypeOf(v)) ++ "`");
     }
     return v;
-}
-
-fn hasFieldNamed(comptime T: type, comptime name: []const u8) bool {
-    return switch (@typeInfo(T)) {
-        .@"struct" => |s| blk: {
-            inline for (s.fields) |f| {
-                if (std.mem.eql(u8, f.name, name)) break :blk true;
-            }
-            break :blk false;
-        },
-        else => false,
-    };
 }
 
 fn fieldInfoByName(comptime T: type, comptime name: []const u8) builtin.Type.StructField {

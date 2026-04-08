@@ -48,7 +48,11 @@ pub fn NamedReader(comptime T: type) type {
 
 pub fn Seekable(comptime T: type) type {
     return struct {
-        const SeekError: type = zigraft.associatedType(T, "SeekError", zigraft.associatedType(T, "ReadError", anyerror));
+        const SeekError: type = zigraft.associatedType(
+            T,
+            "SeekError",
+            zigraft.associatedType(T, "ReadError", anyerror),
+        );
         seekTo: fn (T, u64) SeekError!void,
     };
 }
@@ -158,6 +162,16 @@ const ValueNamed = struct {
     }
 };
 
+// trait generics method usage
+fn streamHandle(
+    stream_ctx: anytype,
+    stream_impl: zigraft.Impl(Stream, @TypeOf(stream_ctx)),
+) !void {
+    var out: [8]u8 = undefined;
+    const n = try stream_impl.describeAndRead(stream_ctx, out[0..]);
+    std.debug.print("stream read: {}\n", .{n});
+}
+
 test "ordinary field constraint works" {
     zigraft.assertImpl(Named, *MyReader);
 }
@@ -223,6 +237,8 @@ test "compose interface: Stream" {
     const n = try impl.describeAndRead(&x, out[0..]);
     try std.testing.expectEqual(@as(usize, 4), n);
     try std.testing.expectEqualStrings("cdef", out[0..n]);
+
+    try streamHandle(&x, .{});
 }
 
 test "associated type override works" {
